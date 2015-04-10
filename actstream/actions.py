@@ -8,6 +8,7 @@ from django.contrib.contenttypes.models import ContentType
 from actstream import settings
 from actstream.signals import action
 from actstream.registry import check
+from actstream.models import target_stream
 
 try:
     from django.utils import timezone
@@ -37,13 +38,30 @@ def follow(user, obj, send_action=True, actor_only=True, **kwargs):
         follow(request.user, group, actor_only=False)
     """
     check(obj)
+
+    follow_verb = _('started following')
+
+    target_recent_actions = [
+        dict(actor=getattr(item, 'actor_object_id'), verb=getattr(item, 'verb'))
+        for item in target_stream(obj)
+    ]
+
+    already_sent = any(
+        (i['actor'] == user.id, i['verb'] == follow_verb._proxy____args[0])
+        for i in target_recent_actions
+    )
+
     instance, created = get_model('actstream', 'follow').objects.get_or_create(
         user=user, object_id=obj.pk,
         content_type=ContentType.objects.get_for_model(obj),
         actor_only=actor_only)
-    if send_action and created:
-        action.send(user, verb=_('started following'), target=obj, **kwargs)
-    return instance
+
+    #if send_action and created:
+    if send_action and created and not already_sent:
+        action_obj = action.send(user, verb=follow_verb, target=obj, **kwargs)
+        return (instance, action_obj)
+
+    return (instance, None)
 
 
 def unfollow(user, obj, send_action=False):
