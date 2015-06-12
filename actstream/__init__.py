@@ -24,4 +24,3 @@ def get_version(release_level=True):
 
 __version__ = get_version()
 __author__ = 'Justin Quick <justquick@gmail.com>'
-default_app_config = 'actstream.apps.ActstreamConfig'
